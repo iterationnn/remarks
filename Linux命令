@@ -1,0 +1,17 @@
+一、vi或vim命令
+VI有三种基本的工作模式：
+指令模式：各种快捷键输入控制文本
+文本输入模式：可以进行键盘敲击输入
+行末模式：可以进行文本的保存、退出等操作
+他们的相互关系如下：
+指令模式(Command Mode)输入a,i,o进入文本输入模式(Input Mode)。
+文本输入模式(Input Mode)下按ESC进入指令模式(Command Mode)
+指令模式(Command Mode)下输入”:”进入行末模式(Last Line Mode)
+行末模式(Last Line Mode)下指令错误返回指令模式(Command Mode)
+
+vi filename       //打开filename文件
+:w       //保存文件
+:w vpser.net //保存至vpser.net文件
+:q          //退出编辑器，如果文件已修改请使用下面的命令
+:q!        //退出编辑器，且不保存
+:wq         //退出编辑器，且保存文件
