@@ -1,0 +1,200 @@
+CXF添加拦截器
+8
+发布时间：『 2016-02-28 18:29』  博客类别：webservice  阅读(3705)
+今天开始讲下拦截器，前面大家学过servlet，struts2 都有拦截器概念，主要作用是做一些权限过滤，编码处理等；
+
+
+
+webservice也可以加上拦截器，我们可以给webservice请求加权限判断功能；
+
+
+
+webservice分服务端和客户端，服务端和客户端都是可以加拦截器的，无论是服务端还是客户端，都分进，出（In，Out）拦截器；
+
+
+
+我们先来改下服务端的Server类：
+
+package com.java1234.webservice;
+ 
+import org.apache.cxf.interceptor.LoggingInInterceptor;
+import org.apache.cxf.interceptor.LoggingOutInterceptor;
+import org.apache.cxf.jaxws.JaxWsServerFactoryBean;
+ 
+import com.java1234.webservice.impl.HelloWorldImpl;
+ 
+public class Server {
+ 
+    public static void main(String[] args) {
+        System.out.println("web service start");  
+        HelloWorld implementor = new HelloWorldImpl();  
+        String address = "http://192.168.1.103/helloWorld";  
+        JaxWsServerFactoryBean factoryBean = new JaxWsServerFactoryBean();
+        factoryBean.setAddress(address); // 设置暴露地址
+        factoryBean.setServiceClass(HelloWorld.class); // 接口类
+        factoryBean.setServiceBean(implementor); // 设置实现类
+        factoryBean.getInInterceptors().add(new LoggingInInterceptor()); // 添加in拦截器 日志拦截器
+        factoryBean.getOutInterceptors().add(new LoggingOutInterceptor()); // 添加out拦截器
+        factoryBean.create();      
+        System.out.println("web service started");  
+    }
+}
+
+
+这里的话，我们通过factoryBean对象可以获取拦截器组，添加进或者出拦截器，这里有个经典的拦截器，我们开发的时候经常用，就是日志拦截器，
+
+我们可以把客户端的请求，以及服务端返回的信息打印出来，可以打印控制台，也可以打印到执行文件；这里为了演示方便，直接搞无参的拦截器，
+
+打印到控制台； 
+
+
+
+无论是自定义的拦截器，还是CXF自带的拦截器，都必须实现Interceptor接口。
+
+
+
+我们执行下Server类：
+
+QQ鎴浘20160228175925.jpg
+
+
+
+然后我们再来执行下客户端的Client类，结果：
+
+QQ鎴浘20160228180012.jpg
+
+
+
+然后我们仔细观察Server端的控制台:
+
+web service start
+二月 28, 2016 5:59:19 下午 org.apache.cxf.wsdl.service.factory.ReflectionServiceFactoryBean buildServiceFromClass
+信息: Creating Service {http://webservice.java1234.com/}HelloWorldService from class com.java1234.webservice.HelloWorld
+二月 28, 2016 5:59:20 下午 org.apache.cxf.endpoint.ServerImpl initDestination
+信息: Setting the server's publish address to be http://192.168.1.103:80/helloWorld
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+web service started
+二月 28, 2016 6:00:07 下午 org.apache.cxf.services.HelloWorldService.HelloWorldPort.HelloWorld
+信息: Inbound Message
+----------------------------
+ID: 1
+Address: http://192.168.1.103/helloWorld?wsdl
+Http-Method: GET
+Content-Type: 
+Headers: {Accept=[text/html, image/gif, image/jpeg, *; q=.2, */*; q=.2], connection=[keep-alive], Content-Type=[null], Host=[192.168.1.103], User-Agent=[Java/1.7.0_67]}
+--------------------------------------
+二月 28, 2016 6:00:07 下午 org.apache.cxf.services.HelloWorldService.HelloWorldPort.HelloWorld
+信息: Inbound Message
+----------------------------
+ID: 2
+Address: http://192.168.1.103/helloWorld
+Encoding: UTF-8
+Http-Method: POST
+Content-Type: text/xml; charset=UTF-8
+Headers: {Accept=[text/xml, multipart/related], connection=[keep-alive], Content-Length=[175], content-type=[text/xml; charset=UTF-8], Host=[192.168.1.103], SOAPAction=[""], User-Agent=[JAX-WS RI 2.2.4-b01]}
+Payload: <?xml version="1.0" ?><S:Envelope xmlns:S="http://schemas.xmlsoap.org/soap/envelope/"><S:Body><ns2:getRoles xmlns:ns2="http://webservice.java1234.com/"/></S:Body></S:Envelope>
+--------------------------------------
+二月 28, 2016 6:00:07 下午 org.apache.cxf.services.HelloWorldService.HelloWorldPort.HelloWorld
+信息: Outbound Message
+---------------------------
+ID: 2
+Response-Code: 200
+Encoding: UTF-8
+Content-Type: text/xml
+Headers: {}
+Payload: <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ns2:getRolesResponse xmlns:ns2="http://webservice.java1234.com/"><return><item><key>jack</key><value><id>1</id><roleName>程序员</roleName></value></item><item><key>java1234</key><value><id>1</id><roleName>技术总监</roleName></value><value><id>2</id><roleName>架构师</roleName></value></item></return></ns2:getRolesResponse></soap:Body></soap:Envelope>
+--------------------------------------
+
+
+这里的打印出来的就是日志信息：Inbound 进信息  Outbound 是出信息，进的时候，大家会看到有个Headers SOAP消息。后面我们可以在里面加我们的数据；
+
+在Outbound Message里，Payload消息里我们可以找到webservice返回的数据 SOAP消息；
+
+
+
+
+
+同理，我们在客户端也可以加进出拦截器，修改Client代码：
+
+package com.java1234.webservice;
+ 
+import java.util.List;
+ 
+import org.apache.cxf.frontend.ClientProxy;
+import org.apache.cxf.interceptor.LoggingInInterceptor;
+import org.apache.cxf.interceptor.LoggingOutInterceptor;
+ 
+public class Client {
+ 
+    public static void main(String[] args) {
+        HelloWorldService service=new HelloWorldService();
+        HelloWorld helloWorld=service.getHelloWorldPort();
+        org.apache.cxf.endpoint.Client client=ClientProxy.getClient(helloWorld);
+        client.getInInterceptors().add(new LoggingInInterceptor()); // 添加in拦截器 日志拦截器
+        client.getOutInterceptors().add(new LoggingOutInterceptor()); // 添加out拦截器
+        //System.out.println(helloWorld.say("java1234"));
+        /*User user=new User();
+        user.setUserName("jack");
+        user.setPassword("123456");
+        List<Role> roleList=helloWorld.getRoleByUser(user);
+        for(Role role:roleList){
+            System.out.println(role.getId()+","+role.getRoleName());
+        }*/
+        MyRoleArray array=helloWorld.getRoles();
+        List<MyRole> roleList=array.item;
+        for(int i=0;i<roleList.size();i++){
+            MyRole my=roleList.get(i);
+            System.out.print(my.key+":");
+            for(Role r:my.value){
+                System.out.print(r.getId()+","+r.getRoleName()+" ");
+            }
+            System.out.println();
+        }
+    }
+}
+
+
+这里的话，我们用到了ClientProxy，客户端代理。
+
+
+
+我们请求的时候，可以看到控制台的日志信息：
+
+二月 28, 2016 6:22:53 下午 org.apache.cxf.wsdl.service.factory.ReflectionServiceFactoryBean buildServiceFromWSDL
+信息: Creating Service {http://webservice.java1234.com/}HelloWorldService from WSDL: http://192.168.1.103/helloWorld?wsdl
+二月 28, 2016 6:22:53 下午 org.apache.cxf.services.HelloWorldService.HelloWorldPort.HelloWorld
+信息: Outbound Message
+---------------------------
+ID: 1
+Address: http://192.168.1.103/helloWorld
+Encoding: UTF-8
+Http-Method: POST
+Content-Type: text/xml
+Headers: {Accept=[*/*], SOAPAction=[""]}
+Payload: <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ns2:getRoles xmlns:ns2="http://webservice.java1234.com/"/></soap:Body></soap:Envelope>
+--------------------------------------
+二月 28, 2016 6:22:53 下午 org.apache.cxf.services.HelloWorldService.HelloWorldPort.HelloWorld
+信息: Inbound Message
+----------------------------
+ID: 1
+Response-Code: 200
+Encoding: UTF-8
+Content-Type: text/xml; charset=UTF-8
+Headers: {content-type=[text/xml; charset=UTF-8], Date=[Sun, 28 Feb 2016 10:22:53 GMT], Server=[Jetty(9.2.11.v20150529)], transfer-encoding=[chunked]}
+Payload: <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ns2:getRolesResponse xmlns:ns2="http://webservice.java1234.com/"><return><item><key>jack</key><value><id>1</id><roleName>程序员</roleName></value></item><item><key>java1234</key><value><id>1</id><roleName>技术总监</roleName></value><value><id>2</id><roleName>架构师</roleName></value></item></return></ns2:getRolesResponse></soap:Body></soap:Envelope>
+--------------------------------------
+jack:1,程序员 
+java1234:1,技术总监 2,架构师
+
+
+这里也是出进的日志信息，和上面那个类似；
+
+
+
+OK到这里的话，添加拦截器已经讲完了；
+
+
+
+完整代码：http://pan.baidu.com/s/1dEbs19Z
