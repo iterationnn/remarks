@@ -1,0 +1,205 @@
+CXF处理JavaBean以及复合类型
+2
+发布时间：『 2016-02-18 10:31』  博客类别：webservice  阅读(3748)
+前面讲的是处理简单类型，今天这里来讲下CXF处理JavaBean以及复合类型，比如集合；
+
+
+
+这里实例是客户端传一个JavaBean，服务器端返回集合类型；
+
+
+
+在原来的项目实例基础上，我们先创建一个实体类User:
+
+package com.java1234.entity;
+ 
+/**
+ * 用户实体类
+ * @author Administrator
+ *
+ */
+public class User {
+ 
+    private Integer id; // 编号
+    private String userName; // 用户名
+    private String password; // 密码
+     
+    public Integer getId() {
+        return id;
+    }
+    public void setId(Integer id) {
+        this.id = id;
+    }
+    public String getUserName() {
+        return userName;
+    }
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+    public String getPassword() {
+        return password;
+    }
+    public void setPassword(String password) {
+        this.password = password;
+    }
+     
+     
+}
+
+
+再创建一个Role实体类：
+
+package com.java1234.entity;
+ 
+/**
+ * 角色实体
+ * @author Administrator
+ *
+ */
+public class Role {
+ 
+    private Integer id; // 编号
+    private String roleName; // 角色名称
+     
+     
+     
+    public Role() {
+        super();
+        // TODO Auto-generated constructor stub
+    }
+     
+     
+     
+    public Role(Integer id, String roleName) {
+        super();
+        this.id = id;
+        this.roleName = roleName;
+    }
+ 
+ 
+ 
+    public Integer getId() {
+        return id;
+    }
+    public void setId(Integer id) {
+        this.id = id;
+    }
+    public String getRoleName() {
+        return roleName;
+    }
+    public void setRoleName(String roleName) {
+        this.roleName = roleName;
+    }
+     
+     
+}
+
+
+
+
+然后HelloWorld再加一个接口方法getRoleByUser，通过用户查找角色：
+
+package com.java1234.webservice;
+ 
+import java.util.List;
+ 
+import javax.jws.WebService;
+ 
+import com.java1234.entity.Role;
+import com.java1234.entity.User;
+ 
+@WebService
+public interface HelloWorld {
+ 
+    public String say(String str);
+     
+    public List<Role> getRoleByUser(User user);
+}
+
+
+
+
+然后HelloWorld接口实现类 HelloWorldImpl写下新增的方法的具体实现，我们这里写死，模拟下即可：
+
+package com.java1234.webservice.impl;
+ 
+import java.util.ArrayList;
+import java.util.List;
+ 
+import javax.jws.WebService;
+ 
+import com.java1234.entity.Role;
+import com.java1234.entity.User;
+import com.java1234.webservice.HelloWorld;
+ 
+@WebService
+public class HelloWorldImpl implements HelloWorld{
+ 
+    public String say(String str) {
+        return "Hello "+str;
+    }
+ 
+    public List<Role> getRoleByUser(User user) {
+        List<Role> roleList=new ArrayList<Role>();
+        // 模拟 直接写死
+        if(user!=null){
+            if(user.getUserName().equals("java1234") && user.getPassword().equals("123456")){
+                roleList.add(new Role(1,"技术总监"));
+                roleList.add(new Role(2,"架构师"));
+            }else if(user.getUserName().equals("jack") && user.getPassword().equals("123456")){
+                roleList.add(new Role(3,"程序员"));
+            }
+            return roleList;
+        }else{
+            return null;          
+        }
+         
+    }
+     
+     
+ 
+}
+
+
+服务端其他地方不用动；
+
+
+
+下面我们来处理下客户端，和前面讲的一样。我们用wsdl2java工具重新生成代码，这里就不再讲；
+
+
+
+QQ鎴浘20160218103035.jpg
+
+
+
+这里我看到，实体类，以及接口实现，代码都生成了。
+
+
+
+我们改下Client类：
+
+package com.java1234.webservice;
+ 
+import java.util.List;
+ 
+public class Client {
+ 
+    public static void main(String[] args) {
+        HelloWorldService service=new HelloWorldService();
+        HelloWorld helloWorld=service.getHelloWorldPort();
+        //System.out.println(helloWorld.say("java1234"));
+        User user=new User();
+        user.setUserName("jack");
+        user.setPassword("123456");
+        List<Role> roleList=helloWorld.getRoleByUser(user);
+        for(Role role:roleList){
+            System.out.println(role.getId()+","+role.getRoleName());
+        }
+    }
+}
+
+
+运行截图：
+
+QQ鎴浘20160218103159.jpg
