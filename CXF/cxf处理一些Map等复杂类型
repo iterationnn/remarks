@@ -1,0 +1,232 @@
+cxf处理一些Map等复杂类型
+3
+发布时间：『 2016-02-22 17:46』  博客类别：webservice  阅读(4235)
+前面讲的一些都是简单类型,cxf都支持。但是有些复杂类型，cxf是不支持，比如常用的Map类型；
+
+
+
+下面我们在前面的实例基础上在加一个方法，比如我们现在有个需求，获取所有用用户以及对应的每个用户所有角色信息；
+
+
+
+服务器端：
+
+
+
+HelloWorld接口加方法：
+
+/**
+     * 获取所有用户以及对应的角色
+     * @return
+     */
+    public Map<String,List<Role>> getRoles();
+
+
+HelloWorldImpl实现类加方法实现：
+
+public Map<String, List<Role>> getRoles() {
+        Map<String,List<Role>> map=new HashMap<String,List<Role>>();
+        List<Role> roleList1=new ArrayList<Role>();
+        roleList1.add(new Role(1,"技术总监"));
+        roleList1.add(new Role(2,"架构师"));
+        map.put("java1234", roleList1);
+        List<Role> roleList2=new ArrayList<Role>();
+        roleList2.add(new Role(1,"程序员"));
+        map.put("jack", roleList2);
+        return map;
+    }
+
+
+然后我们启动Server类：发现报错：
+
+QQ鎴浘20160222175231.jpg
+
+这个报错信息说，不支持该类型；
+
+
+
+这里我们有好几种解决方案，这里我们用最常用的一种，使用适配器，把cxf不能接受的类型通过适配器，转能接受的类型。
+
+
+
+我们使用@XmlJavaTypeAdapter注解，加在接口定义上，完整接口代码如下：
+
+package com.java1234.webservice;
+ 
+import java.util.List;
+import java.util.Map;
+ 
+import javax.jws.WebService;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+ 
+import com.java1234.adapter.MapAdapter;
+import com.java1234.entity.Role;
+import com.java1234.entity.User;
+ 
+@WebService
+public interface HelloWorld {
+ 
+    public String say(String str);
+     
+    public List<Role> getRoleByUser(User user);
+     
+    /**
+     * 获取所有用户以及对应的角色
+     * @return
+     */
+    @XmlJavaTypeAdapter(MapAdapter.class)
+    public Map<String,List<Role>> getRoles();
+}
+
+
+这里参数需要一个实现了XmlAdapter类的适配器类；
+
+package com.java1234.adapter;
+ 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+ 
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+ 
+import com.java1234.entity.Role;
+ 
+/**
+ * Map适配器
+ * @author Administrator
+ *
+ */
+public class MapAdapter extends XmlAdapter<MyRole[], Map<String,List<Role>>>{
+ 
+    /**
+     * 适配转换  MyRole[] -> Map<String, List<Role>>
+     */
+    @Override
+    public Map<String, List<Role>> unmarshal(MyRole[] v) throws Exception {
+        Map<String, List<Role>> map=new HashMap<String,List<Role>>();
+        for(int i=0;i<v.length;i++){
+            MyRole r=v[i];
+            map.put(r.getKey(), r.getValue());
+        }
+        return map;
+    }
+ 
+    /**
+     * 适配转换  Map<String, List<Role>> -> MyRole[]
+     */
+    @Override
+    public MyRole[] marshal(Map<String, List<Role>> v) throws Exception {
+        MyRole[] roles=new MyRole[v.size()];
+        int i=0;
+        for(String key:v.keySet()){
+            roles[i]=new MyRole();
+            roles[i].setKey(key);
+            roles[i].setValue(v.get(key));
+            i++;
+        }
+        return roles;
+    }
+ 
+     
+     
+ 
+}
+这里的话XmlAdapter要加两个参数，XmlAdapter<ValueType,BoundType> 
+
+ValueType是cxf能接收的类型，这里我用了数组；
+
+BoundType是cxf不能接受的类型，也就是我例子里的需求的Map类型；
+
+
+
+这里大家会看到，还有一个MyRole自定义类型，key:value。我们搞成两个属性，具体实现如下：
+
+package com.java1234.adapter;
+ 
+import java.util.List;
+ 
+import com.java1234.entity.Role;
+ 
+/**
+ * 自定义实体 cxf能接受
+ * @author Administrator
+ *
+ */
+public class MyRole {
+ 
+    private String key;
+    private List<Role> value;
+     
+    public String getKey() {
+        return key;
+    }
+    public void setKey(String key) {
+        this.key = key;
+    }
+    public List<Role> getValue() {
+        return value;
+    }
+    public void setValue(List<Role> value) {
+        this.value = value;
+    }
+     
+     
+}
+
+
+OK 这样就行了。我们运行Server类，发布webservice接口：
+
+QQ鎴浘20160222174638.jpg
+
+
+
+
+
+然后就到了webservice客户端，我们用wsdl2java工具生成下最新代码，具体过程前面讲过，这里不重复讲：
+
+生成代码如下：
+
+QQ鎴浘20160222174813.jpg
+
+
+
+我们修改下Client类：
+
+package com.java1234.webservice;
+ 
+import java.util.List;
+ 
+public class Client {
+ 
+    public static void main(String[] args) {
+        HelloWorldService service=new HelloWorldService();
+        HelloWorld helloWorld=service.getHelloWorldPort();
+        //System.out.println(helloWorld.say("java1234"));
+        /*User user=new User();
+        user.setUserName("jack");
+        user.setPassword("123456");
+        List<Role> roleList=helloWorld.getRoleByUser(user);
+        for(Role role:roleList){
+            System.out.println(role.getId()+","+role.getRoleName());
+        }*/
+        MyRoleArray array=helloWorld.getRoles();
+        List<MyRole> roleList=array.item;
+        for(int i=0;i<roleList.size();i++){
+            MyRole my=roleList.get(i);
+            System.out.print(my.key+":");
+            for(Role r:my.value){
+                System.out.print(r.getId()+","+r.getRoleName()+" ");
+            }
+            System.out.println();
+        }
+    }
+}
+
+
+运行下:
+
+QQ鎴浘20160222174853.jpg
+
+
+
+OK,这样就实现了复杂类型的调用；
